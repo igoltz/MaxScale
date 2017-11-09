@@ -93,6 +93,7 @@
 #include <maxscale/alloc.h>
 #include <maxscale/utils.h>
 #include <maxscale/platform.h>
+#include <maxscale/protocol/mysql.h>
 
 #include "maxscale/session.h"
 #include "maxscale/modules.h"
@@ -3420,6 +3421,7 @@ void dcb_process_idle_sessions(int thr)
 
                     if (idle > timeout)
                     {
+                        dump_dcb(dcb);
                         MXS_WARNING("Timing out '%s'@%s, idle for %.1f seconds",
                                     dcb->user ? dcb->user : "<unknown>",
                                     dcb->remote ? dcb->remote : "<unknown>",

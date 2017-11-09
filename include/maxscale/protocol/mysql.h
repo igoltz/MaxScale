@@ -442,4 +442,48 @@ bool mxs_mysql_is_ok_packet(GWBUF *buffer);
 /** Check for result set */
 bool mxs_mysql_is_result_set(GWBUF *buffer);
 
+#include <maxscale/modutil.h>
+#include <maxscale/alloc.h>
+
+static inline void dump_dcb(DCB* dcb)
+{
+    MySQLProtocol* proto = (MySQLProtocol*)dcb->protocol;
+    MXS_SESSION* session = dcb->session;
+    char* sql = session->stmt.buffer ? modutil_get_SQL(session->stmt.buffer) : NULL;
+
+    MXS_NOTICE("session_id: %lu\n"
+               "transaction_state: %x\n"
+               "autocommit: %s\n"
+               "session_state: %s\n"
+               "connection_age: %ld seconds\n"
+               "protocol_bytes_processed: %lu\n"
+               "protocol_packet_length: %lu\n"
+               "ignore_reply: %s\n"
+               "current_command: %02hhx\n"
+               "charset: %u\n"
+               "client_capabilities: %0x\n"
+               "protocol_auth_state: %s\n"
+               "writeq len: %u\n"
+               "readq len: %u\n"
+               "delayq len: %u\n"
+               "stmt: %s\n",
+               session->ses_id,
+               session->trx_state,
+               session->autocommit ? "yes" : "no",
+               STRSESSIONSTATE(session->state),
+               time(NULL) - session->stats.connect,
+               dcb->protocol_bytes_processed,
+               dcb->protocol_packet_length,
+               proto->ignore_reply ? "yes" : "no",
+               proto->current_command,
+               proto->charset,
+               proto->client_capabilities,
+               STRPROTOCOLSTATE(proto->protocol_auth_state),
+               gwbuf_length(dcb->writeq),
+               gwbuf_length(dcb->dcb_readqueue),
+               gwbuf_length(dcb->delayq),
+               sql ? sql : "no stored statement");
+    MXS_FREE(sql);
+}
+
 MXS_END_DECLS
