@@ -113,6 +113,14 @@ typedef struct mxs_upstream
     int32_t (*error)(void *instance, void *session, void *);
 } MXS_UPSTREAM;
 
+#define DEBUG_N_MSG 100
+
+typedef struct
+{
+    char* what;
+    time_t when;
+}DEBUG_MSG;
+
 /**
  * The session status block
  *
@@ -146,6 +154,7 @@ typedef struct session
         const struct server *target; /**< Where the statement was sent */
     } stmt;  /**< Current statement being executed */
     bool qualifies_for_pooling; /**< Whether this session qualifies for the connection pool */
+    DEBUG_MSG       msg[DEBUG_N_MSG];
     skygw_chk_t     ses_chk_tail;
 } MXS_SESSION;
 
@@ -396,5 +405,9 @@ MXS_SESSION* session_get_current();
  * @return The id of the current session or 0 if there is no current session.
  **/
 uint64_t session_get_current_id();
+
+/** Debug messages */
+void ses_debug(DCB* dcb, const char* fmt, ...);
+char* ses_dump_debug(DCB* dcb);
 
 MXS_END_DECLS

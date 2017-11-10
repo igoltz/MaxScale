@@ -445,12 +445,15 @@ bool mxs_mysql_is_result_set(GWBUF *buffer);
 #include <maxscale/modutil.h>
 #include <maxscale/alloc.h>
 
+void debug_query(DCB* dcb, GWBUF* buffer);
+void debug_response(DCB* dcb, GWBUF* buffer);
+
 static inline void dump_dcb(DCB* dcb)
 {
     MySQLProtocol* proto = (MySQLProtocol*)dcb->protocol;
     MXS_SESSION* session = dcb->session;
     char* sql = session->stmt.buffer ? modutil_get_SQL(session->stmt.buffer) : NULL;
-
+    char* msg = ses_dump_debug(dcb);
     MXS_NOTICE("session_id: %lu\n"
                "transaction_state: %x\n"
                "autocommit: %s\n"
@@ -466,7 +469,9 @@ static inline void dump_dcb(DCB* dcb)
                "writeq len: %u\n"
                "readq len: %u\n"
                "delayq len: %u\n"
-               "stmt: %s\n",
+               "stmt: %s\n"
+               "--- Latest Messages ---\n"
+                "%s",
                session->ses_id,
                session->trx_state,
                session->autocommit ? "yes" : "no",
@@ -482,8 +487,10 @@ static inline void dump_dcb(DCB* dcb)
                gwbuf_length(dcb->writeq),
                gwbuf_length(dcb->dcb_readqueue),
                gwbuf_length(dcb->delayq),
-               sql ? sql : "no stored statement");
+               sql ? sql : "no stored statement",
+               msg);
     MXS_FREE(sql);
+    MXS_FREE(msg);
 }
 
 MXS_END_DECLS

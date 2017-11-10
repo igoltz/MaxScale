@@ -113,6 +113,7 @@ session_alloc(SERVICE *service, DCB *client_dcb)
     session->stmt.buffer = NULL;
     session->stmt.target = NULL;
     session->qualifies_for_pooling = false;
+    memset(session->msg, 0, sizeof(session->msg));
     /*<
      * Associate the session to the client DCB and set the reference count on
      * the session to indicate that there is a single reference to the
@@ -365,6 +366,11 @@ static void session_free(MXS_SESSION *session)
 static void
 session_final_free(MXS_SESSION *session)
 {
+    for (int i = 0; i < DEBUG_N_MSG && session->msg[i].what; i++)
+    {
+        MXS_FREE(session->msg[i].what);
+    }
+
     gwbuf_free(session->stmt.buffer);
     MXS_FREE(session);
 }
@@ -973,4 +979,49 @@ uint64_t session_get_current_id()
     MXS_SESSION* session = session_get_current();
 
     return session ? session->ses_id : 0;
+}
+
+void ses_debug(DCB* dcb, const char* fmt, ...)
+{
+    MXS_FREE(dcb->session->msg[DEBUG_N_MSG - 1].what);
+
+    for (int i = DEBUG_N_MSG - 1; i > 0; i--)
+    {
+        dcb->session->msg[i] = dcb->session->msg[i - 1];
+    }
+
+    va_list args;
+    va_start(args, fmt);
+    int n = vsnprintf(NULL, 0, fmt, args);
+    va_end(args);
+
+    dcb->session->msg[0].what = MXS_MALLOC(n + 1);
+    va_start(args, fmt);
+    vsnprintf(dcb->session->msg[0].what, n + 1, fmt, args);
+    va_end(args);
+    dcb->session->msg[0].when = time(NULL);
+}
+
+char* ses_dump_debug(DCB* dcb)
+{
+    int len = 0;
+
+    for (int i = 0; i < DEBUG_N_MSG && dcb->session->msg[i].what; i++)
+    {
+        len += strlen(dcb->session->msg[i].what) + 41;
+    }
+
+    char* msg = MXS_MALLOC(len + 1);
+    *msg = '\0';
+
+    for (int i = DEBUG_N_MSG - 1; i >= 0; i--)
+    {
+        if (dcb->session->msg[i].what)
+        {
+            sprintf(strchr(msg, '\0'), "%lu: %s\n", dcb->session->msg[i].when,
+                    dcb->session->msg[i].what);
+        }
+    }
+
+    return msg;
 }

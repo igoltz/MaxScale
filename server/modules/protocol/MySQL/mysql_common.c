@@ -1597,3 +1597,41 @@ bool mxs_mysql_is_result_set(GWBUF *buffer)
 
     return rval;
 }
+
+void debug_query(DCB* dcb, GWBUF* buffer)
+{
+    const char* target = dcb->server ? dcb->server->unique_name : "client";
+
+    if (modutil_is_SQL(buffer) || modutil_is_SQL_prepare(buffer))
+    {
+        char* sql = modutil_get_SQL(buffer);
+        for (int i = 0; sql[i]; i++)
+        {
+            if (sql[i] == '\n' || sql[i] == '\t' || sql[i] == '\r')
+            {
+                sql[i] = ' ';
+            }
+        }
+        ses_debug(dcb, "[%s]: SQL: %s", target, sql);
+        MXS_FREE(sql);
+    }
+    else
+    {
+        ses_debug(dcb, "[%s]: non-SQL: %02hhx", target, GWBUF_DATA(buffer)[4]);
+    }
+}
+
+void debug_response(DCB* dcb, GWBUF* buffer)
+{
+    const char* target = dcb->server ? dcb->server->unique_name : "client";
+    int buflen = GWBUF_LENGTH(buffer);
+    if (buflen > 100)
+    {
+        buflen = 100;
+    }
+
+    char buf[buflen * 2 + 1];
+    gw_bin2hex(buf, GWBUF_DATA(buffer), buflen);
+
+    ses_debug(dcb, "[%s]: %s%s", target, buf, buflen < 100 ? "" : "...");
+}

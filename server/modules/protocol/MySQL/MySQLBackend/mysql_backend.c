@@ -501,6 +501,7 @@ gw_read_backend_event(DCB *dcb)
 
             if (proto->protocol_auth_state == MXS_AUTH_STATE_COMPLETE)
             {
+                ses_debug(dcb, "Auth to %s complete", dcb->server->unique_name);
                 /** Authentication completed successfully */
                 GWBUF *localq = dcb->delayq;
                 dcb->delayq = NULL;
@@ -508,6 +509,8 @@ gw_read_backend_event(DCB *dcb)
                 if (localq)
                 {
                     /** Send the queued commands to the backend */
+
+                    debug_query(dcb, localq);
                     rc = backend_write_delayqueue(dcb, localq);
                 }
             }
@@ -869,6 +872,7 @@ gw_read_and_write(DCB *dcb)
 
         if (session_ok_to_route(dcb))
         {
+            debug_response(dcb, stmt);
             gwbuf_set_type(stmt, GWBUF_TYPE_MYSQL);
             session->service->router->clientReply(session->service->router_instance,
                                                   session->router_session,
@@ -1115,6 +1119,7 @@ static int gw_MySQLWrite_backend(DCB *dcb, GWBUF *queue)
             else
             {
                 /** Write to backend */
+                debug_query(dcb, queue);
                 rc = dcb_write(dcb, queue);
             }
         }
