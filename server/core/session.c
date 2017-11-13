@@ -983,23 +983,26 @@ uint64_t session_get_current_id()
 
 void ses_debug(DCB* dcb, const char* fmt, ...)
 {
-    MXS_FREE(dcb->session->msg[DEBUG_N_MSG - 1].what);
-
-    for (int i = DEBUG_N_MSG - 1; i > 0; i--)
+    if (dcb->session->state != SESSION_STATE_DUMMY)
     {
-        dcb->session->msg[i] = dcb->session->msg[i - 1];
+        MXS_FREE(dcb->session->msg[DEBUG_N_MSG - 1].what);
+
+        for (int i = DEBUG_N_MSG - 1; i > 0; i--)
+        {
+            dcb->session->msg[i] = dcb->session->msg[i - 1];
+        }
+
+        va_list args;
+        va_start(args, fmt);
+        int n = vsnprintf(NULL, 0, fmt, args);
+        va_end(args);
+
+        dcb->session->msg[0].what = MXS_MALLOC(n + 1);
+        va_start(args, fmt);
+        vsnprintf(dcb->session->msg[0].what, n + 1, fmt, args);
+        va_end(args);
+        dcb->session->msg[0].when = time(NULL);
     }
-
-    va_list args;
-    va_start(args, fmt);
-    int n = vsnprintf(NULL, 0, fmt, args);
-    va_end(args);
-
-    dcb->session->msg[0].what = MXS_MALLOC(n + 1);
-    va_start(args, fmt);
-    vsnprintf(dcb->session->msg[0].what, n + 1, fmt, args);
-    va_end(args);
-    dcb->session->msg[0].when = time(NULL);
 }
 
 char* ses_dump_debug(DCB* dcb)
