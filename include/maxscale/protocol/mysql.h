@@ -61,6 +61,7 @@
 #include <maxscale/version.h>
 #include <maxscale/housekeeper.h>
 #include <maxscale/utils.h>
+#include <maxscale/paths.h>
 #include <mysql.h>
 
 MXS_BEGIN_DECLS
@@ -448,49 +449,72 @@ bool mxs_mysql_is_result_set(GWBUF *buffer);
 void debug_query(DCB* dcb, GWBUF* buffer);
 void debug_response(DCB* dcb, GWBUF* buffer);
 
-static inline void dump_dcb(DCB* dcb)
+static inline int print_dump(char* dest, size_t size, DCB* dcb, char* sql, char* msg)
 {
     MySQLProtocol* proto = (MySQLProtocol*)dcb->protocol;
     MXS_SESSION* session = dcb->session;
-    char* sql = session->stmt.buffer ? modutil_get_SQL(session->stmt.buffer) : NULL;
+    time_t now = time(NULL);
+    return snprintf(dest, size,
+                    "--- Connection details ---\n"
+                    "timestamp: %s" // ctime() adds a newline
+                    "user: %s\n"
+                    "session_id: %lu\n"
+                    "transaction_state: %x\n"
+                    "autocommit: %s\n"
+                    "session_state: %s\n"
+                    "connection_age: %ld seconds\n"
+                    "protocol_bytes_processed: %lu\n"
+                    "protocol_packet_length: %lu\n"
+                    "ignore_reply: %s\n"
+                    "current_command: %02hhx\n"
+                    "charset: %u\n"
+                    "client_capabilities: %0x\n"
+                    "protocol_auth_state: %s\n"
+                    "writeq len: %u\n"
+                    "readq len: %u\n"
+                    "delayq len: %u\n"
+                    "stmt: %s\n"
+                    "--- Latest Messages ---\n"
+                    "%s",
+                    ctime(&now),
+                    dcb->user,
+                    session->ses_id,
+                    session->trx_state,
+                    session->autocommit ? "yes" : "no",
+                    STRSESSIONSTATE(session->state),
+                    time(NULL) - session->stats.connect,
+                    dcb->protocol_bytes_processed,
+                    dcb->protocol_packet_length,
+                    proto->ignore_reply ? "yes" : "no",
+                    proto->current_command,
+                    proto->charset,
+                    proto->client_capabilities,
+                    STRPROTOCOLSTATE(proto->protocol_auth_state),
+                    gwbuf_length(dcb->writeq),
+                    gwbuf_length(dcb->dcb_readqueue),
+                    gwbuf_length(dcb->delayq),
+                    sql ? sql : "no stored statement",
+                    msg);
+}
+
+static inline void dump_dcb(DCB* dcb)
+{
+    char* sql = dcb->session->stmt.buffer ? modutil_get_SQL(dcb->session->stmt.buffer) : NULL;
     char* msg = ses_dump_debug(dcb);
-    MXS_NOTICE("session_id: %lu\n"
-               "transaction_state: %x\n"
-               "autocommit: %s\n"
-               "session_state: %s\n"
-               "connection_age: %ld seconds\n"
-               "protocol_bytes_processed: %lu\n"
-               "protocol_packet_length: %lu\n"
-               "ignore_reply: %s\n"
-               "current_command: %02hhx\n"
-               "charset: %u\n"
-               "client_capabilities: %0x\n"
-               "protocol_auth_state: %s\n"
-               "writeq len: %u\n"
-               "readq len: %u\n"
-               "delayq len: %u\n"
-               "stmt: %s\n"
-               "--- Latest Messages ---\n"
-                "%s",
-               session->ses_id,
-               session->trx_state,
-               session->autocommit ? "yes" : "no",
-               STRSESSIONSTATE(session->state),
-               time(NULL) - session->stats.connect,
-               dcb->protocol_bytes_processed,
-               dcb->protocol_packet_length,
-               proto->ignore_reply ? "yes" : "no",
-               proto->current_command,
-               proto->charset,
-               proto->client_capabilities,
-               STRPROTOCOLSTATE(proto->protocol_auth_state),
-               gwbuf_length(dcb->writeq),
-               gwbuf_length(dcb->dcb_readqueue),
-               gwbuf_length(dcb->delayq),
-               sql ? sql : "no stored statement",
-               msg);
+    int size = print_dump(NULL, 0, dcb, sql, msg);
+    char* data = (char*)MXS_MALLOC(size + 1);
+    print_dump(data, size + 1, dcb, sql, msg);
+
+    char dest[PATH_MAX];
+    strcpy(dest, get_logdir());
+    strcat(dest, "/maxscale.debug");
+    FILE* f = fopen(dest, "a");
+    fwrite(data, 1, size, f);
+    fclose(f);
+
     MXS_FREE(sql);
     MXS_FREE(msg);
+    MXS_FREE(data);
 }
 
 MXS_END_DECLS
