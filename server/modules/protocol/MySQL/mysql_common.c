@@ -1612,12 +1612,13 @@ void debug_query(DCB* dcb, GWBUF* buffer)
                 sql[i] = ' ';
             }
         }
-        ses_debug(dcb, "[%s]: SQL: %s", target, sql);
+        ses_debug(dcb, "[%s]: SQL, %u bytes: %s", target, gwbuf_length(buffer), sql);
         MXS_FREE(sql);
     }
     else
     {
-        ses_debug(dcb, "[%s]: non-SQL: %02hhx", target, GWBUF_DATA(buffer)[4]);
+        ses_debug(dcb, "[%s]: non-SQL, %u bytes: %02hhx", target, gwbuf_length(buffer),
+                  GWBUF_DATA(buffer)[4]);
     }
 }
 
